@@ -1,4 +1,4 @@
-Description of the scripts and input files:
+Description of the scripts and input file:
 
 LD_decay:
 Script for calculating the decay of GPD in the ancestral populations.
@@ -32,4 +32,7 @@ Calculates the off-diagonal values of the matrix D in the ancestral populations.
 
 figures.Rmd: 
 R Notebook for the figures in the paper.
+
+founding_pop.RData:
+Input file for the main simulation. Contains masked information for the coding of the genotypes
 
