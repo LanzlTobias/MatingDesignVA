@@ -1,0 +1,1330 @@
+---
+title: "Figures"
+output:
+  word_document: default
+  html_notebook: default
+editor_options:
+  chunk_output_type: console
+---
+
+Script for plotting the figures in the paper
+
+# Loading the data
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.height=8, fig.width=16,message=FALSE,echo=FALSE, warnings = FALSE)
+options(scipen = 3)
+```
+
+```{r}
+library(magrittr)
+library(broom)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(cowplot)
+library(purrr)
+library(GGally)
+library(moments)
+library(lme4)
+library(scales)
+library(gtable)
+library(grid)
+
+setwd('~/LD/Paper')
+
+p_df <- readRDS(file = 'output/Appendix_A.RData')
+
+summary_df <- readRDS('output/summary_df.RData') 
+
+ANOVA_df <- readRDS('output/ANOVA_df.RData')
+
+expectation_df <- readRDS(file = 'output/figS1_expectation.RData') 
+
+simulation_df <- readRDS(file = 'output/figS1_simulation.RData')
+
+D_ancestral <- readRDS(file = 'output/D_ancestral.RData')
+
+cbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+
+# Figures
+
+## Fig. 1
+
+Simulation scheme
+
+## Fig. 2
+
+```{r}
+tmp <- summary_df %>% 
+  filter(N == 'N=1000',
+         G == 'G1_DH',
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         parameter == 'E_Vg',
+         L == 'L=1000',
+         MD == 'HC') %>% 
+  ggplot(aes(x=P, y = Mean, fill = ancestral))+
+  geom_col(position = 'dodge')+
+  facet_grid(~ancestral, scales = 'free_y', switch = 'x')+
+  scale_fill_manual(values = cbPalette)+
+  ylab(bquote('Estimated expectation for'~V[A]))+
+  theme_light(base_size = 10)+
+  theme(strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        legend.position = 'none',
+        axis.title.x = element_blank())
+
+tmp 
+
+ggsave('figures/fig2.jpg', width = 7.5, height = 9,
+       bg = 'white', units = 'cm')
+
+summary_df %>% 
+  filter(N == 'N=1000',
+         G == 'G1_DH',
+         P %in% paste0('P=', c(2,16)),
+         parameter == 'E_Vg',
+         L == 'L=1000',
+         MD == 'HC') %>% 
+  select(P, ancestral, Mean) %>% 
+  pivot_wider(values_from = Mean, names_from = P) %>% 
+  mutate(increase = `P=16`/`P=2` - 1)
+
+summary_df %>% 
+  filter(N == 'N=1000',
+         G == 'G1_DH',
+         parameter == 'E_Vg',
+         L == 'L=1000',
+         MD == 'HC') %>% 
+  select(P, ancestral, Mean) %>% 
+  pivot_wider(values_from = Mean, names_from = ancestral) %>% 
+  mutate(increase = Landrace/Elite - 1)
+```
+
+## Fig. 3
+
+```{r}
+gtable_filter_remove <- function (x, name, trim = TRUE){
+    matches <- !(x$layout$name %in% name)
+    x$layout <- x$layout[matches, , drop = FALSE]
+    x$grobs <- x$grobs[matches]
+    if (trim) 
+        x <- gtable_trim(x)
+    x
+}
+
+cross_df <- tibble(P_num = c(2, 4, 8, 16)) %>% 
+  mutate(P = factor(P_num, levels = c(2, 4, 8, 16),
+                    labels = paste0('P=', c(2, 4, 8, 16))),
+         DC = P_num/2,
+         FC = (P_num/2)**2,
+         HC = (P_num * (P_num - 1)) / 2) %>% 
+  pivot_longer(DC:HC, names_to = 'MD',
+               values_to = 'crosses') %>% 
+  mutate(MD = factor(MD,
+                     levels = c('DC', 'FC', 'HC'))) %>% 
+  filter(!(MD %in% c('DC', 'HC') & P == 'P=2'))
+
+A <- summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         L == 'L=1000',
+         ancestral == 'Elite',
+         parameter %in% c('var_bb', 'var_bw')) %>%
+  mutate(parameter = recode_factor(parameter, "var_bb" = 'widehat(var(b[b]))', "var_bw" = 'widehat(var(b[w]))'))  %>%
+  filter(!(MD %in% c('DC', 'HC') & P == 'P=2')) %>% 
+  ggplot(aes(x = MD))+
+  geom_col(aes(y = Mean, fill = parameter), colour = 'black')+
+  geom_text(y = 0.28, aes(label = crosses), data = cross_df, size = 2.5)+
+  scale_alpha_manual(values = c(0.5, 1))+
+  scale_fill_manual(values = cbPalette[c(7, 6)], labels = scales::parse_format())+
+  scale_y_continuous(limits = c(0, 0.30))+
+  facet_grid(~P, switch = 'x', scales = 'free_x', space = 'free_x')+
+  theme_light(base_size = 10)+
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        strip.text.y = element_text(angle = 0),
+        legend.position = 'none')+
+  ylab('Estimated variance of b')+
+  labs(title = 'Elite')
+
+plot_tab_A <- ggplotGrob(A)
+
+tmp <- plot_filtered <- gtable_filter_remove(plot_tab_A, 
+                     "axis-b-1",
+                     trim=FALSE)
+
+A <- ggpubr::as_ggplot(tmp)
+
+B <- summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         L == 'L=1000',
+         ancestral == 'Landrace',
+         parameter %in% c('var_bb', 'var_bw')) %>%
+  mutate(parameter = recode_factor(parameter, "var_bb" = 'widehat(var(b[b]))', "var_bw" = 'widehat(var(b[w]))'),
+         Mean = ifelse(P == 'P=2' & MD %in% c('DC', 'HC'), NA, Mean))  %>%
+    filter(!(MD %in% c('DC', 'HC') & P == 'P=2')) %>% 
+ggplot(aes(x = MD))+
+  geom_col(aes(y = Mean, fill = parameter), colour = 'black')+
+  geom_text(y = 0.28, aes(label = crosses), data = cross_df, size = 2.5)+
+  scale_alpha_manual(values = c(0.5, 1))+
+  scale_fill_manual(values = cbPalette[c(7, 6)], labels = scales::parse_format())+
+  scale_y_continuous(limits = c(0, 0.30))+
+  facet_grid(~P, switch = 'x', scales = 'free_x', space = 'free_x')+
+  theme_light(base_size = 10)+
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        strip.text.y = element_text(angle = 0),
+        legend.position = 'none')+
+  ylab('Estimated variance of b')+
+  labs(title = 'Landrace')
+
+plot_tab_B <- ggplotGrob(B)
+
+tmp <- plot_filtered <- gtable_filter_remove(plot_tab_B, 
+                     "axis-b-1",
+                     trim=FALSE)
+
+B <- ggpubr::as_ggplot(tmp)
+
+legend <- get_legend(summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 16)),
+         L == 'L=1000',
+         parameter %in% c('var_bb', 'var_bw')) %>%
+  mutate(parameter = recode_factor(parameter,
+                                   "var_Vg" = 'widehat(var(V[g]))',
+                                   "var_Cb" = 'widehat(var(C[b]))', "var_Cw" = 'widehat(var(C[w]))',
+                                   "var_bb" = 'widehat(var(b[b]))', "var_bw" = 'widehat(var(b[w]))'))  %>%
+  ggplot(aes(x = N, fill = parameter))+
+  geom_col(aes(y = Mean), colour = 'black')+
+  scale_alpha_manual(values = c(0.5, 1))+
+  scale_fill_manual(values = cbPalette[c(7, 6)], labels = scales::parse_format())+
+  scale_y_continuous(limits = c(0, 34000))+
+  facet_grid(~P, switch = 'x')+
+  theme_light(base_size = 10)+
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90),
+        strip.text.y = element_text(angle = 0))+
+  ylab(bquote(bar(sigma)[C]^2))+
+  labs(title = 'EL '))
+
+tmp <- plot_grid(plot_grid(A, B,
+          nrow = 1,
+          labels = LETTERS[1:2], align = 'v'), 
+          legend, 
+          ncol = 1,
+          rel_heights = c(10, 1),
+          label_size = 12)
+
+tmp 
+
+ggsave('figures/fig3.jpg', width = 15, height = 7.5, bg = 'white', units = 'cm')
+
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         ancestral == 'Elite',
+         parameter %in% c('var_b')) %>% 
+  select(P, MD, Mean) %>% 
+  pivot_wider(names_from = MD, values_from = Mean) %>% 
+  mutate(tmp = HC/DC - 1)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         ancestral == 'Elite',
+         parameter %in% c('var_b')) %>% 
+  select(P, MD, Mean) %>% 
+  pivot_wider(names_from = P, values_from = Mean) %>% 
+  mutate(tmp = `P=16`/`P=4` - 1)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         ancestral == 'Elite',
+         parameter %in% c('var_bw')) %>% 
+  select(P, MD, Mean) %>% 
+  pivot_wider(names_from = P, values_from = Mean) %>% 
+  mutate(tmp = `P=16`/`P=2` - 1)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         ancestral == 'Elite',
+         parameter %in% c('var_bw')) %>% 
+  select(P, MD, Mean) %>% 
+  pivot_wider(names_from = MD, values_from = Mean) %>% 
+  mutate(tmp = HC/DC - 1)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         ancestral == 'Elite',
+         parameter %in% c('var_bw')) %>% 
+  select(P, MD, Mean) %>% 
+  pivot_wider(names_from = P, values_from = Mean) %>% 
+  mutate(tmp = `P=16`/`P=4` - 1)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         ancestral == 'Elite',
+         parameter %in% c('var_bb')) %>% 
+  select(P, MD, Mean) %>% 
+  pivot_wider(names_from = P, values_from = Mean) %>% 
+  mutate(tmp = `P=16`/`P=4` - 1)
+
+summary_df %>% 
+  filter(G == 'G1_DH',
+         parameter == 'var_b') %>% 
+  select(L:ancestral, Mean) %>% 
+  pivot_wider(names_from = P, values_from = Mean) %>% 
+  mutate(tmp = (`P=4` - `P=16`)/`P=4`) %$%
+  summary(tmp)
+
+```
+
+
+## Fig. 4
+
+Differences for N in G1 EL
+
+```{r}
+tmp <- summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=50', 'N=250', 'N=1000'),
+         P %in% paste0('P=', c(2)),
+         ancestral == 'Elite',
+         L == 'L=1000',
+         MD == 'FC',
+         parameter %in% c('var_bb', 'var_bw')) %>%
+  mutate(parameter = recode_factor(parameter, "var_bb" = 'widehat(var(b[b]))', "var_bw" = 'widehat(var(b[w]))'))  %>%
+  ggplot(aes(x = N, fill = parameter))+
+  geom_col(aes(y = Mean), colour = 'black')+
+  scale_alpha_manual(values = c(0.5, 1))+
+  scale_fill_manual(values = cbPalette[c(7, 6)], labels = scales::parse_format())+
+  scale_y_continuous(limits = c(0, 0.2))+
+  facet_grid(~P, switch = 'x')+
+  theme_light(base_size = 10)+
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        strip.text.y = element_text(angle = 0))+
+  ylab('Estimated variance of b')+
+  labs(title = 'Elite')+
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE))
+
+
+tmp
+
+ggsave('figures/fig4.jpg', width = 7.5, height = 7.5, bg = 'white', units = 'cm')
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=50', 'N=250', 'N=1000'),
+         P %in% paste0('P=', c(2)),
+         ancestral == 'Elite',
+         L == 'L=1000',
+         MD == 'FC',
+         parameter %in% c('var_b')) %>% 
+  select(N, Mean) %>% 
+  pivot_wider(names_from = N, values_from = Mean) %>% 
+  mutate(N50_2_N250 = `N=250`/`N=50` - 1,
+         N250_2_N1000 = `N=1000`/`N=250` - 1)
+  
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=50', 'N=250', 'N=1000'),
+         P %in% paste0('P=', c(2)),
+         ancestral == 'Elite',
+         L == 'L=1000',
+         MD == 'FC',
+         parameter %in% c('var_b', 'var_bb')) %>% 
+  select(N, Mean, parameter) %>% 
+  pivot_wider(names_from = parameter, values_from = 'Mean') %>% 
+  mutate(tmp = var_bb/var_b)
+```
+
+## Fig. 5
+
+Difference between generations in EL
+
+```{r}
+tmp <- summary_df %>% 
+    filter(N %in% c('N=50', 'N=250', 'N=1000'),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         ancestral == 'Elite',
+         MD == 'FC',
+         L == 'L=1000',
+         parameter %in% c('var_bw', 'var_bb')) %>%
+  mutate(parameter = recode_factor(parameter, "var_bb" = 'widehat(var(b[b]))', "var_bw" = 'widehat(var(b[w]))'))  %>%
+  ggplot(aes(x = gsub('_', '-', G), fill = parameter))+
+  geom_col(aes(y = Mean), colour = 'black')+
+  scale_alpha_manual(values = c(0.5, 1))+
+  scale_fill_manual(values = cbPalette[c(7, 6)], labels = scales::parse_format())+
+  facet_grid(N~P, switch = 'x')+
+  theme_light(base_size = 10)+
+  theme(legend.title = element_blank(),
+        strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        axis.title.x = element_blank())+
+  ylab('Estimated variance of b')+
+  scale_y_continuous(limits = c(0, 0.21))+
+  labs(title = 'Elite FC')
+
+tmp 
+
+ggsave('figures/fig5.jpg', width = 15, height = 20, bg = 'white', units = 'cm')
+
+summary_df %>% 
+    filter(N %in% c('N=50'),
+         ancestral == 'Elite',
+         MD == 'FC',
+         L == 'L=1000',
+         parameter %in% c('var_bb')) %>% 
+   select(P, G, Mean) %>% 
+   pivot_wider(names_from = G, values_from = Mean) %>% 
+   mutate(tmp = G4_DH/G1_DH)
+   
+summary_df %>% 
+    filter(parameter %in% c('var_bw'),
+           G %in% c('G1_DH', 'G2_DH')) %>%
+  select(L, P, N, MD, ancestral, G, Mean) %>% 
+  pivot_wider(names_from = G, values_from = Mean) %>% 
+  mutate(tmp = G2_DH/G1_DH - 1) %$%
+  summary(tmp)
+
+# ancestral
+summary_df %>% 
+    filter(parameter %in% c('var_bw'),
+           G %in% c('G1_DH', 'G2_DH')) %>%
+  select(L, P, N, MD, ancestral, G, Mean) %>% 
+  pivot_wider(names_from = G, values_from = Mean) %>% 
+  mutate(tmp = G2_DH/G1_DH - 1) %>% 
+  select(L:ancestral, tmp) %>% 
+  pivot_wider(names_from = ancestral, values_from = tmp) %>% 
+  mutate(tmp = abs(Elite - Landrace)) %$%
+  summary(tmp)
+
+# MD
+summary_df %>% 
+    filter(parameter %in% c('var_bw'),
+           G %in% c('G1_DH', 'G2_DH')) %>%
+  select(L, P, N, MD, ancestral, G, Mean) %>% 
+  pivot_wider(names_from = G, values_from = Mean) %>% 
+  mutate(tmp = G2_DH/G1_DH - 1) %>% 
+  select(L:ancestral, tmp) %>% 
+  group_by(L, P, N, ancestral) %>% 
+  summarize(tmp = max(tmp) - min(tmp)) %>% 
+  ungroup() %$%
+  summary(tmp)
+
+summary_df %>% 
+    filter(parameter == 'var_b') %>% 
+  select(L:G, Mean) %>% 
+  pivot_wider(names_from = G, values_from = Mean) %>% 
+  mutate(first = G1_DH - G2_DH,
+         second = G2_DH - G3_DH,
+         third = G3_DH - G4_DH,
+         tmp = first > second & first > third) %$%
+  table(tmp)
+
+summary_df %>% 
+    filter(parameter == 'var_bw') %>% 
+  select(L:G, Mean) %>% 
+  pivot_wider(names_from = G, values_from = Mean) %>% 
+  mutate(first = (G1_DH - G2_DH)/G1_DH,
+         second = (G2_DH - G3_DH)/G2_DH,
+         third = (G3_DH - G4_DH)/G3_DH) %>% 
+  select(L:ancestral, first:third) %>% 
+  pivot_longer(first:third) %$%
+  summary(value)
+
+summary_df %>% 
+    filter(parameter == 'var_bw') %>% 
+  select(L:G, Mean) %>% 
+  pivot_wider(names_from = G, values_from = Mean) %>% 
+  mutate(first = (G1_DH - G2_DH)/G1_DH) %$%
+  summary(first)
+
+summary_df %>% 
+    filter(parameter == 'var_bw') %>% 
+  select(L:G, Mean) %>% 
+  pivot_wider(names_from = G, values_from = Mean) %>% 
+  mutate(first = (G1_DH - G2_DH)/G1_DH) %>% 
+  filter(first == min(first) | first == max(first))
+
+summary_df %>% 
+    filter(parameter == 'var_bw') %>% 
+  select(L:G, Mean) %>% 
+  pivot_wider(names_from = G, values_from = Mean) %>% 
+  mutate(first = (G1_DH - G2_DH)/G1_DH) %>% 
+  ggplot(aes(G1_DH, first, colour = P, shape = N))+
+  geom_point()+
+  scale_shape_manual(values = 0:2)
+
+summary_df %>% 
+    filter(parameter == 'var_bw') %>% 
+  select(L:G, Mean) %>% 
+  pivot_wider(names_from = G, values_from = Mean) %>% 
+  mutate(first = (G1_DH - G2_DH)/G1_DH) %>% 
+  filter(P == 'P=2') %$%
+  summary(first)
+
+summary_df %>%
+  filter(parameter == 'var_bb',
+         G == 'G4_DH') %>% 
+  ggplot(aes(x = L, y = Mean, colour = P))+
+  geom_point()+
+  facet_grid(~N)
+
+summary_df %>%
+  filter(parameter == 'var_bb',
+         G == 'G4_DH',
+         N == 'N=50') %>% 
+  select(L:ancestral, Mean) %>% 
+  pivot_wider(names_from = L, values_from = Mean)
+```
+
+
+## Fig. 6
+
+```{r}
+cross_df <- tibble(P_num = c(2, 4, 8, 16)) %>% 
+  mutate(P = factor(P_num, levels = c(2, 4, 8, 16),
+                    labels = paste0('P=', c(2, 4, 8, 16))),
+         DC = P_num/2,
+         FC = (P_num/2)**2,
+         HC = (P_num * (P_num - 1)) / 2) %>% 
+  pivot_longer(DC:HC, names_to = 'MD',
+               values_to = 'crosses') %>% 
+  filter(MD %in% c('HC', 'DC'))
+
+tmp <- summary_df %>% 
+    filter(N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         ancestral == 'Elite',
+         MD %in% c('HC', 'DC'),
+         L == 'L=1000',
+         parameter %in% c('var_bw', 'var_bb')) %>%
+  mutate(parameter = recode_factor(parameter, "var_bb" = 'widehat(var(b[b]))', "var_bw" = 'widehat(var(b[w]))'))  %>%
+  ggplot(aes(x = gsub('_', '-', G)))+
+  geom_col(aes(y = Mean, fill = parameter), colour = 'black')+
+  geom_text(x = 'G1-DH', y = 0.29, aes(label = crosses), data = cross_df, size = 2.5)+
+  scale_alpha_manual(values = c(0.5, 1))+
+  scale_fill_manual(values = cbPalette[c(7, 6)], labels = scales::parse_format())+
+  facet_grid(MD~P, switch = 'x')+
+  theme_light(base_size = 10)+
+  theme(legend.title = element_blank(),
+        strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        axis.title.x = element_blank())+
+  ylab('Estimated variance of b')+
+  scale_y_continuous(limits = c(0, 0.31))+
+  labs(title = 'Elite')
+
+tmp
+
+ggsave('figures/fig6.jpg', width = 15, height = 10, bg = 'white', units = 'cm')
+```
+
+
+
+
+# Supplement
+
+## S1
+
+Trait distribution
+
+```{r}
+summary_distribution <- simulation_df %>%
+#  filter(sel_frac == 1) %>% 
+  mutate(Cw = Vg + Cw,
+         Cb = Vg + Cb) %>% 
+  select(P, `V[A]` = VA, `V[g]` = Vg,
+         `V[g]+C[w]` = Cw, `V[g]+C[b]` = Cb) %>% 
+  pivot_longer(-P, names_to = 'parameter') %>% 
+  group_by(P, parameter) %>% 
+    summarize(mean = round(mean(value)),
+            var = round(var(value)),
+            excess = round(kurtosis(value) - 3, 2),
+            skewness = round(skewness(value), 2)) %>% 
+  ungroup()
+
+summary_distribution <- expectation_df %>% 
+  select(P, E_Vg, var_Vg, var_Cw, var_Cb, var_VA) %>% 
+  mutate(`Exp.mean_V[A]` = E_Vg,
+         `Exp.var_V[A]` = var_VA,
+         `Exp.mean_V[g]` = E_Vg,
+         `Exp.var_V[g]` = var_Vg,
+         `Exp.mean_V[g]+C[w]` = E_Vg,
+         `Exp.var_V[g]+C[w]` = var_Vg + var_Cw,
+         `Exp.mean_V[g]+C[b]` = E_Vg,
+         `Exp.var_V[g]+C[b]` = var_Vg + var_Cb,
+         .keep = 'unused') %>% 
+  pivot_longer(-P) %>%
+  mutate(value = round(value)) %>% 
+  separate(name, 
+           into = c('exp_var', 'parameter'),
+           sep = '_') %>% 
+  pivot_wider(names_from = exp_var, values_from = value) %>% 
+  left_join(summary_distribution) %>% 
+  mutate(parameter = factor(parameter, 
+                            levels = c('V[g]', 'V[g]+C[w]',
+                                       'V[g]+C[b]', 'V[A]')),
+         P = recode_factor(P, 
+                           'P=2' = "'P'=='2'",
+                           'P=4' = "'P'=='4'"))
+
+
+tmp <- simulation_df %>%
+#  filter(sel_frac == 1) %>% 
+  mutate(Cw = Vg + Cw,
+         Cb = Vg + Cb) %>% 
+  select(P, `V[A]` = VA, `V[g]` = Vg,
+         `V[g]+C[w]` = Cw, `V[g]+C[b]` = Cb) %>% 
+  pivot_longer(-P, names_to = 'parameter') %>% 
+  mutate(parameter = factor(parameter, 
+                            levels = c('V[g]', 'V[g]+C[w]',
+                                       'V[g]+C[b]', 'V[A]')),
+         P = recode_factor(P, 
+                           'P=2' = "'P'=='2'",
+                           'P=4' = "'P'=='4'")) %>%
+  ggplot(aes(x = value))+
+  geom_histogram(bins = 100)+
+  geom_label(data = summary_distribution,
+             aes(label = paste0('mean = ', mean, ' (', Exp.mean, ')',
+                                '\nvariance = ', var, ' (', Exp.var, ')',
+                                '\nexcess = ', excess, 
+                                '\nskewness = ', skewness)),
+             x = 900, y = 1800, size = 3)+
+    facet_grid(parameter~P, labeller = 'label_parsed') +
+  xlab('Realized values')+
+  #scale_y_continuous(limits = c(0, 1600))+
+  theme_light(base_size = 10)+
+  theme(legend.position = 'none',
+        strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank(),
+        axis.ticks.x = element_blank())
+
+tmp 
+
+ggsave('figures/figS1.jpg', width = 15, height = 15, bg = 'white', units = 'cm')
+
+simulation_df %>%
+  group_by(P) %>% 
+  summarize(cor = cor(Vg, Cw*Cb))
+```
+
+
+## S2
+
+Histograms of MAF
+
+```{r}
+full_pop <-  readRDS('input/founding_pop.RData')
+
+EL = do.call(cbind, lapply(full_pop$haplotypes, function(x){
+  x[grepl('Elite',rownames(x)),]/2
+}))
+
+LR = do.call(cbind, lapply(full_pop$haplotypes, function(x){
+  x[grepl('Landrace',rownames(x)),]/2
+}))
+
+tmp <- tibble(Landrace = colMeans(LR),
+       Elite = colMeans(EL)) %>% 
+  pivot_longer(everything()) %>% 
+  mutate(MAF = ifelse(value >= 0.5, 1-value, value)) %>% 
+  ggplot(aes(x = MAF, fill = name))+
+  geom_density(alpha = 0.5, adjust = 0.5)+
+  scale_fill_manual(values = cbPalette)+
+  theme_light(base_size = 10)+
+  theme(panel.grid = element_blank(),
+        legend.title = element_blank(),
+        legend.position = 'bottom')+
+  ylab('Density')+
+  xlab('Minor allele frequency')
+
+tmp
+
+ggsave('figures/figS2.jpg', width = 7.5, height = 7.5, bg = 'white', units = 'cm')
+```
+
+
+## S3
+
+```{r}
+gtable_filter_remove <- function (x, name, trim = TRUE){
+    matches <- !(x$layout$name %in% name)
+    x$layout <- x$layout[matches, , drop = FALSE]
+    x$grobs <- x$grobs[matches]
+    if (trim) 
+        x <- gtable_trim(x)
+    x
+}
+
+cross_df <- tibble(P_num = c(2, 4, 8, 16)) %>% 
+  mutate(P = factor(P_num, levels = c(2, 4, 8, 16),
+                    labels = paste0('P=', c(2, 4, 8, 16))),
+         DC = P_num/2,
+         FC = (P_num/2)**2,
+         HC = (P_num * (P_num - 1)) / 2) %>% 
+  pivot_longer(DC:HC, names_to = 'MD',
+               values_to = 'crosses') %>% 
+  mutate(MD = factor(MD,
+                     levels = c('DC', 'FC', 'HC'))) %>% 
+  filter(!(MD %in% c('DC', 'HC') & P == 'P=2'))
+
+A <- summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         L == 'L=1000',
+         ancestral == 'Elite',
+         parameter %in% c('var_Vg', 'var_Cb', 'var_Cw')) %>%
+  mutate(parameter = recode_factor(parameter, 
+                                   "var_Cb" = 'widehat(var(C[b]))',
+                                   "var_Cw" = 'widehat(var(C[w]))',
+                                   "var_Vg" = 'widehat(var(V[g]))')) %>% 
+  filter(!(MD %in% c('DC', 'HC') & P == 'P=2')) %>%
+  ggplot(aes(x = MD))+
+  geom_col(aes(y = Mean, fill = parameter), colour = 'black')+
+  geom_text(y = 42000, aes(label = crosses), data = cross_df, size = 2.5)+
+  scale_fill_manual(values = c(cbPalette[c(5, 4)], 'magenta'), labels = scales::parse_format())+
+  scale_y_continuous(limits = c(0, 45000))+
+  facet_grid(~P, switch = 'x', scales = 'free_x', space = 'free_x')+
+  theme_light(base_size = 10)+
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        strip.text.y = element_text(angle = 0),
+        legend.position = 'none')+
+  ylab(bquote('Estimated variance of'~V[A]))+
+  labs(title = 'Elite')
+
+plot_tab_A <- ggplotGrob(A)
+
+tmp <- plot_filtered <- gtable_filter_remove(plot_tab_A, 
+                     "axis-b-1",
+                     trim=FALSE)
+
+A <- ggpubr::as_ggplot(tmp)
+
+B <- summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         L == 'L=1000',
+         ancestral == 'Landrace',
+         parameter %in% c('var_Vg', 'var_Cb', 'var_Cw')) %>%
+  mutate(parameter = recode_factor(parameter, 
+                                   "var_Cb" = 'widehat(var(C[b]))',
+                                   "var_Cw" = 'widehat(var(C[w]))',
+                                   "var_Vg" = 'widehat(var(V[g]))')) %>% 
+  filter(!(MD %in% c('DC', 'HC') & P == 'P=2')) %>%
+  ggplot(aes(x = MD))+
+  geom_col(aes(y = Mean, fill = parameter), colour = 'black')+
+  geom_text(y = 42000, aes(label = crosses), data = cross_df, size = 2.5)+
+  scale_fill_manual(values = c(cbPalette[c(5, 4)], 'magenta'), labels = scales::parse_format())+
+  scale_y_continuous(limits = c(0, 45000))+
+  facet_grid(~P, switch = 'x', scales = 'free_x', space = 'free_x')+
+  theme_light(base_size = 10)+
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        strip.text.y = element_text(angle = 0),
+        legend.position = 'none')+
+  ylab(bquote('Estimated variance of'~V[A]))+
+  labs(title = 'Landrace')
+
+plot_tab_B <- ggplotGrob(B)
+
+tmp <- plot_filtered <- gtable_filter_remove(plot_tab_B, 
+                     "axis-b-1",
+                     trim=FALSE)
+
+B <- ggpubr::as_ggplot(tmp)
+
+
+legend <- get_legend(summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 16)),
+         L == 'L=1000',
+         parameter %in% c('var_Vg', 'var_Cb', 'var_Cw')) %>%
+  mutate(parameter = recode_factor(parameter,
+                                   "var_Cb" = 'widehat(var(C[b]))', "var_Cw" = 'widehat(var(C[w]))',
+                                   "var_bb" = 'widehat(var(b[b]))', "var_bw" = 'widehat(var(b[w]))',
+                                   "var_Vg" = 'widehat(var(V[g]))')) %>% 
+  filter(!(MD %in% c('DC', 'HC') & P == 'P=2')) %>%
+  ggplot(aes(x = N, fill = parameter))+
+  geom_col(aes(y = Mean), colour = 'black')+
+  scale_alpha_manual(values = c(0.5, 1))+
+  scale_fill_manual(values = c(cbPalette[c(5, 4)], 'magenta'), labels = scales::parse_format())+
+  scale_y_continuous(limits = c(0, 34000))+
+  facet_grid(~P, switch = 'x', scales = 'free_x', space = 'free_x')+
+  theme_light(base_size = 10)+
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90),
+        strip.text.y = element_text(angle = 0))+
+  ylab(bquote(bar(sigma)[C]^2))+
+  labs(title = 'EL '))
+
+tmp <- plot_grid(plot_grid(A, B,
+          nrow = 1,
+          labels = LETTERS[1:2], align = 'v'), 
+          legend, 
+          ncol = 1,
+          rel_heights = c(10, 1))
+
+tmp 
+
+ggsave('figures/figS3.jpg', width = 15, height = 7.5, bg = 'white', units = 'cm')
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         parameter %in% c('var_VA', 'var_C')) %>% 
+  select(P, ancestral, MD, parameter, Mean) %>% 
+  pivot_wider(names_from = parameter, values_from = Mean) %>% 
+  mutate(tmp = var_C/var_VA) %$%
+  summary(tmp)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         parameter %in% c('var_C')) %>% 
+  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
+  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
+  mutate(tmp = Landrace/Elite - 1) %$%
+  summary(tmp)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         parameter %in% c('var_b')) %>% 
+  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
+  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
+  mutate(tmp = Landrace/Elite - 1) %$%
+  summary(tmp)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         parameter %in% c('var_bw')) %>% 
+  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
+  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
+  mutate(tmp = Landrace/Elite - 1) %$%
+  summary(tmp)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         P != 'P=2',
+         parameter %in% c('var_bb')) %>% 
+  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
+  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
+  mutate(tmp = Landrace/Elite - 1) %$%
+  summary(tmp)
+
+summary_df %>%
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         L == 'L=1000',
+         P == 'P=2',
+         parameter %in% c('var_bb')) %>% 
+  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
+  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
+  mutate(tmp = Landrace/Elite - 1) 
+
+```
+
+## S4
+
+Differences between number of QTL
+
+```{r}
+gtable_filter_remove <- function (x, name, trim = TRUE){
+    matches <- !(x$layout$name %in% name)
+    x$layout <- x$layout[matches, , drop = FALSE]
+    x$grobs <- x$grobs[matches]
+    if (trim) 
+        x <- gtable_trim(x)
+    x
+}
+
+A <- summary_df %>% 
+  filter(P != 'P=2',
+         G == 'G1_DH',
+         N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         ancestral == 'Elite',
+         parameter %in% c('var_bb', 'var_bw')) %>%
+  mutate(parameter = recode_factor(parameter, "var_bb" = 'widehat(var(b[b]))', "var_bw" = 'widehat(var(b[w]))'))  %>%
+  ggplot(aes(x = L, fill = parameter))+
+  geom_col(aes(y = Mean), colour = 'black')+
+  scale_alpha_manual(values = c(0.5, 1))+
+  scale_fill_manual(values = cbPalette[c(7, 6)], labels = scales::parse_format())+
+  scale_y_continuous(limits = c(0, 0.28))+
+  facet_grid(MD~P, switch = 'x')+
+  theme_light(base_size = 10)+
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        strip.text.y = element_text(angle = 0),
+        axis.title.y = element_blank())+
+  ylab('Estimated variance of b')+
+  labs(title = ' ')
+
+A
+
+B <- summary_df %>% 
+  filter(P == 'P=2',
+         G == 'G1_DH',
+         N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         ancestral == 'Elite',
+         parameter %in% c('var_bb', 'var_bw')) %>%
+  mutate(parameter = recode_factor(parameter, "var_bb" = 'widehat(var(b[b]))', "var_bw" = 'widehat(var(b[w]))'))  %>%
+  ggplot(aes(x = L, fill = parameter))+
+  geom_col(aes(y = Mean), colour = 'black')+
+  scale_alpha_manual(values = c(0.5, 1))+
+  scale_fill_manual(values = cbPalette[c(7, 6)], labels = scales::parse_format())+
+  scale_y_continuous(limits = c(0, 0.28))+
+  facet_grid(MD~P, switch = 'x')+
+  theme_light(base_size = 10)+
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        strip.text.y = element_blank(),
+        legend.position = 'none')+
+  ylab('Estimated variance of b')+
+  labs(title = 'Elite N=1000')
+
+
+plot_tab <- ggplotGrob(B)
+
+plot_filtered <- gtable_filter_remove(plot_tab, 
+                     c("panel-2-1","panel-1-1",
+                       "axis-l-1", "axis-l-2"),
+                     trim=FALSE)
+
+B <- ggpubr::as_ggplot(plot_filtered)
+
+plot_grid(B, A, ncol = 2,
+          rel_widths = c(1, 3),
+          axis = 'b')
+
+ggsave('figures/figS4.jpg', width = 15, height = 12, bg = 'white', units = 'cm')
+
+summary_df %>% 
+  filter(G == 'G1_DH',
+         N %in% c('N=1000'),
+         ancestral == 'Elite',
+         parameter %in% c('var_b'),
+         MD == 'FC') %>% 
+  select(P, L, Mean) %>% 
+  pivot_wider(names_from = L, values_from = Mean) %>% 
+  mutate(L50_2_L250 = `L=250`/`L=50` - 1,
+         L250_2_L1000 = `L=1000`/`L=250` - 1)
+
+  
+summary_df %>% 
+  filter(parameter %in% c('var_b', 'var_bb')) %>% 
+  select(ancestral, MD, P, N, L, G, parameter, Mean) %>% 
+  pivot_wider(names_from = parameter, values_from = Mean) %>% 
+  mutate(tmp = var_bb/var_b) %>% 
+  select(ancestraL=G, tmp) %>% 
+  pivot_wider(names_from = L, values_from = tmp) %>% 
+  ggpairs(columns = 6:8)
+
+summary_df %>% 
+  filter(parameter %in% c('var_b', 'var_bb')) %>% 
+  select(ancestral, MD, P, N, L, G, parameter, Mean) %>% 
+  pivot_wider(names_from = parameter, values_from = Mean) %>% 
+  mutate(tmp = var_bb/var_b) %>% 
+  select(ancestraL=G, tmp) %>% 
+  pivot_wider(names_from = L, values_from = tmp) %>% 
+  mutate(tmp = `L=50` - `L=1000`) %$%
+  summary(tmp)
+
+summary_df %>% 
+  filter(parameter == 'var_b',
+         G == 'G1_DH',
+         P != 'P=2') %>% 
+  select(L:G, Mean) %>% 
+  pivot_wider(names_from = L, values_from = Mean) %>% 
+  mutate(L1000_250 = (`L=1000` - `L=250`)/`L=1000`,
+         L250_50 = (`L=250` - `L=50`)/`L=250`) %$%
+  summary(L1000_250)
+
+summary_df %>% 
+  filter(parameter == 'var_b',
+         G == 'G1_DH') %>% 
+  select(L:G, Mean) %>% 
+  pivot_wider(names_from = L, values_from = Mean) %>% 
+  mutate(L1000_250 = (`L=1000` - `L=250`)/`L=1000`,
+         L250_50 = (`L=250` - `L=50`)/`L=250`) %>% 
+  arrange(desc(L250_50))
+```
+
+## S5
+
+non-linear regression
+
+```{r}
+reg_df <- summary_df %>%
+  filter(parameter == 'var_bb') %>%
+  mutate(N_num = as.numeric(as.character(gsub('N=', '', N)))) %>%
+  select(MD, ancestral, L, P, N, N_num, G, Mean) %>%
+  mutate(bla = 'real') %>%
+  unite(col = 'G', c(bla, G), sep = '_') %>%
+  pivot_wider(names_from = G, values_from = Mean) %>%
+  mutate(start = `real_G1_DH`) %>%
+  pivot_longer(-c(MD, ancestral, L, P, N, N_num, start)) %>%
+  separate(name, into = c('type', 'G', NA), sep = '_') %>%
+  group_by(MD, ancestral, L, P, N, N_num) %>%
+  mutate(
+    rec_steps = 0:3,
+    omega_factor = vapply(0:3, function(r) {
+      sum(0.25 ** (0:r))
+    }, FUN.VALUE = numeric(1))
+  ) %>%
+  ungroup() 
+
+model = function(df){
+  nls(value ~ (start - omega) * 0.25**(rec_steps) + ((4 - 1/4**rec_steps)/3) * omega, start = c(omega=0), data = df)}
+
+summary_reg <- reg_df %>%
+  filter(rec_steps > 0) %>% 
+  group_by(MD, ancestral, L, P, N) %>% 
+  nest() %>% 
+  mutate(model = map(data, model),
+         tmp = map(model, augment),
+         summary = map(model, tidy)) %>% 
+  unnest(summary)
+
+reg_plot <- reg_df %>%
+  filter(rec_steps > 0) %>% 
+  group_by(MD, ancestral, L, P, N) %>% 
+  nest() %>% 
+  mutate(model = map(data, model),
+         tmp = map(model, augment),
+         summary = map(model, tidy)) %>% 
+  unnest(tmp) %>% 
+  group_by(MD, ancestral, L, P) %>% 
+  mutate(rec_steps = rep(1:3, 3)) %>% 
+  ungroup() %>% 
+  left_join(reg_df %>%
+  # filter(rec_steps > 0) %>% 
+  mutate(expectation = start * (1/4)**(rec_steps))) %>% 
+  pivot_longer(c(value, .fitted, expectation)) %>% 
+  bind_rows(reg_df %>% 
+  mutate(expectation = value *(1/4)**rec_steps) %>% 
+  pivot_longer(c(value, expectation)) %>% 
+  filter(rec_steps == 0,
+         name == 'value')) %>% 
+  mutate(name = factor(name, 
+                       levels = c('value', '.fitted', 'expectation'))) 
+
+tmp <- reg_plot %>% 
+  filter(ancestral == 'Elite', 
+         N_num %in% c(50, 250, 1000),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         L == 'L=1000',
+         MD == 'FC') %>% 
+  ggplot(aes(paste0(G, '-DH'), value, shape = name))+
+  geom_point(alpha = 0.5, size = 2)+
+  facet_grid(N~P, switch = 'x')+
+  scale_shape_manual(values = c(1, 2, 8))+
+  scale_y_continuous(limits = c(0, 0.17))+
+  theme_light(base_size = 10)+
+  theme(strip.text.y = element_text(angle = 0),
+        legend.position = 'none',
+        panel.grid = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 90))+
+  ylab(bquote('Estimated variance of'~b[b]))+
+  xlab('Number of additional recombination steps')+
+  labs(title = 'Elite FC')
+
+tmp
+
+ggsave('figures/figS5.jpg', width = 15, height = 12, bg = 'white', units = 'cm')
+```
+
+## S6
+
+```{r}
+A <- p_df %>% 
+  pivot_longer(-y) %>% 
+  filter(value > 0,
+         name == 'p=0.5') %>% 
+  ggplot(aes(x = y, y = value, colour = y < 0))+
+  ylab(bquote("P[Y = y|L = 1000," ~ beta ~ "= 0.5]"))+
+  geom_segment(aes(xend = y), yend = 0)+
+  scale_colour_manual(values = c('cornflowerblue', 'orange'))+
+  geom_hline(yintercept = 0)+
+  theme_light(base_size = 10)+
+  theme(legend.position = 'none',
+        strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank())+
+  coord_cartesian(xlim = c(-600, 7500))
+
+A 
+
+PY_y <- p_df %>% 
+  pivot_longer(-y) %>% 
+  filter(value > 0,
+         name == 'p=0.5') %>% 
+  pull(value)
+
+B <- p_df %>% 
+  pivot_longer(-y) %>% 
+  filter(value > 0,
+         name == 'p=0.5') %>% 
+  mutate(cumulative = cumsum(value)) %>% 
+  ggplot(aes(x = y, y = cumulative, colour = y < 0))+
+  ylab(bquote("P[Y" <= "y|L = 1000," ~ beta ~ "= 0.5]"))+
+  geom_segment(aes(xend = y), yend = 0)+
+  scale_colour_manual(values = c('cornflowerblue', 'orange'))+
+  geom_hline(yintercept = 0)+
+  theme_light(base_size = 10)+
+  theme(legend.position = 'none',
+        strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank())+
+  coord_cartesian(xlim = c(-600, 7500))
+
+B
+
+plot_grid(A, B, ncol = 2, labels = c('A', 'B'))
+
+ggsave('figures/figS6.jpg', width = 15, height = 7.5, bg = 'white',
+       units = 'cm')
+
+```
+
+## S7
+
+Histogram of the D values in the ancestral populations
+
+```{r}
+D_ancestral %>%
+  mutate(elements = factor(elements, 
+                           levels = c('diag',
+                                      'within_chr',
+                                      'between_chr',
+                                      'off_diag'),
+                           labels = c('V',
+                                      'W',
+                                      'B',
+                                      'W & B'))) %>% 
+  filter(elements != 'V') %>% 
+  ggplot(aes(value))+
+  geom_histogram(bins = 100)+
+  facet_grid(elements~population, scales = 'free_y')+
+  theme_light(base_size = 10)+
+  theme(strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank())+
+  xlab(bquote(d[ij]))
+
+  ggsave('figures/figS7.jpg', width = 15, height = 15, bg = 'white',
+       units = 'cm')
+```
+
+
+
+
+## Tab. S1
+
+AMOVA
+
+```{r}
+library(ade4)
+full_pop <-  readRDS('input/founding_pop.RData')
+
+EL = do.call(cbind, lapply(full_pop$haplotypes, function(x){
+  x[grepl('Elite',rownames(x)),]
+}))
+
+LR = do.call(cbind, lapply(full_pop$haplotypes, function(x){
+  x[grepl('Landrace',rownames(x)),]
+}))
+
+within_EL = (sum(as.matrix(dist(EL/2, diag = TRUE, upper = TRUE))**2)/ (2*nrow(EL))) / (nrow(EL) - 1)
+
+within_LR = (sum(as.matrix(dist(LR/2, diag = TRUE, upper = TRUE))**2)/ (2*nrow(LR))) / (nrow(LR) - 1)
+
+groups = tibble(EL = c(rep(1, nrow(EL)), rep(0, nrow(EL))),
+                LR = c(rep(0, nrow(LR)), rep(1, nrow(LR))))
+dist_mtx = dist(rbind(EL/2, LR/2))
+
+mean(c(within_LR, within_EL))
+
+amova(groups, dist_mtx)
+
+within_EL
+within_LR
+
+randtest(amova(groups, dist_mtx),
+         nrepet = 10000, alter = 'two-sided')
+```
+
+## Tab. S2
+
+```{r}
+reg_df <- summary_df %>%
+  filter(parameter == 'var_bb') %>%
+  mutate(N_num = as.numeric(as.character(gsub('N=', '', N)))) %>%
+  select(MD, ancestral, L, P, N, N_num, G, Mean) %>%
+  mutate(bla = 'real') %>%
+  unite(col = 'G', c(bla, G), sep = '_') %>%
+  pivot_wider(names_from = G, values_from = Mean) %>%
+  mutate(start = `real_G1_DH`) %>%
+  pivot_longer(-c(MD, ancestral, L, P, N, N_num, start)) %>%
+  separate(name, into = c('type', 'G', NA), sep = '_') %>%
+  group_by(MD, ancestral, L, P, N, N_num) %>%
+  mutate(
+    rec_steps = 0:3,
+    omega_factor = vapply(0:3, function(r) {
+      sum(0.25 ** (0:r))
+    }, FUN.VALUE = numeric(1))
+  ) %>%
+  ungroup() 
+
+model = function(df){
+  nls(value ~ (start - omega) * 0.25**(rec_steps) + ((4 - 1/4**rec_steps)/3) * omega, start = c(omega=0), data = df)}
+
+summary_reg <- reg_df %>%
+  filter(rec_steps > 0) %>% 
+  group_by(MD, ancestral, L, P, N) %>% 
+  nest() %>% 
+  mutate(model = map(data, model),
+         tmp = map(model, augment),
+         summary = map(model, tidy)) %>% 
+  unnest(summary)
+
+summary_reg %>% 
+  filter(L == 'L=1000',
+         ancestral == 'Elite',
+         MD == 'FC') %>% 
+  ungroup() %>% 
+  select(P, N, estimate, std.error) %>% 
+  pivot_wider(names_from = N, values_from = estimate:std.error) %>% 
+  mutate_at(2:7, round, digits = 3)
+```
+
+## GPD decay
+
+```{r}
+summary_reg_df <- bind_rows(list(Landrace = landrace,
+                         Elite = elite), .id = 'ancestral') 
+
+fitcurve_plot <- function(x,p,n = 115) {
+  ((10 + p*x)) / ((2+p*x) * (11 + p*x) ) *
+    ( 1 + ( (3+ p*x) * (12 + 12 * p + p^2*x^2)) / ( n*(2+p*x) * (11 + p*x)))	
+}
+
+
+plot_df <- bind_rows(list(Landrace = bind_rows(GPD_LR, .id = 'chr'),
+               Elite = bind_rows(GPD_EL, .id = 'chr')), 
+          .id = 'ancestral') %>% 
+  filter(!is.na(r2),
+         distance <= 1) 
+  
+
+p <- ggplot(plot_df, aes(distance, r2))+
+  geom_point(alpha = 0.01)
+  
+for(i in 1:nrow(summary_reg_df)){
+p <- p + geom_function(data = transform(plot_df,
+                               ancestral = summary_reg_df$ancestral[i],
+                               chr = summary_reg_df$chr[i]),
+              fun = fitcurve_plot,
+              args = list(p = summary_reg_df$p[i]),
+              colour = 'red')
+}
+
+p+
+  geom_hline(yintercept = 0.1, colour = 'blue')+
+  geom_label(data = summary_reg_df, 
+             aes(label = paste0(round(r2_decay * 100, 2),
+                                ' cM')),
+             x = 0.75, y = 0.75, size = 2.5)+
+  facet_grid(ancestral~factor(chr, levels = 1:10, labels = paste0('chr:', 1:10)),
+             scales = 'free_x', space = 'free_x')+
+  scale_x_continuous(labels = function(x){x*100})+
+  xlab('Distance in cM')+
+  ylab(bquote(r^2))
+```
+
+
+
+# Preparatory analysis
+
+The analysis shows that while with 250 reps and 100 sets the maximum SE/Mean is minimal (3.2%), the median is nearly twice as high as compared to 500 reps and 50 sets (13.6% and 7.8%). Our choice of numbers replications and sets of QTL positions was based on this.
+
+```{r}
+prep_df <- readRDS('output/preparatory_summary_df.RData')
+
+summary(prep_df$rep)
+summary(prep_df$set)
+
+prep_df %>% 
+  filter(set == 0) %$%
+  table(parameter)
+
+
+purrr::map2(c(50, 100, 250, 500), c(500, 250, 100, 50), function(x, y){
+prep_df %>% 
+  mutate(SE_new = sqrt(rep/x + set/y + Residual/(x * y))) %>% 
+  filter(L == 'L=1000') %$% 
+  summary(SE_new/Mean) 
+})
+
+purrr::map2(c(50, 100, 250, 500), c(500, 250, 100, 50), function(x, y){
+prep_df %>% 
+  mutate(SE_new = sqrt(rep/x + set/y + Residual/(x * y))) %$% 
+  summary(SE_new/Mean) 
+})
+```
+
