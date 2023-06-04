@@ -71,11 +71,12 @@ probability_function <- function(p, l) {
 
 l <- 1000
 p_df <-
-  bind_cols(lapply(c(0.5, 0.75, 0.9), probability_function, l = l))
+  bind_cols(lapply(c(0.5), probability_function, l = l))
 
-names(p_df) <- paste0('p=', c(0.5, 0.75, 0.9))
+names(p_df) <- paste0('p=', c(0.5))
 
 p_df$y <- -choose(l, 2):choose(l, 2)
 
 saveRDS(p_df, file = 'output/Appendix_A.RData')
+
 

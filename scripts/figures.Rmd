@@ -31,7 +31,7 @@ library(scales)
 library(gtable)
 library(grid)
 
-setwd('~/LD/Paper')
+setwd('C:/Users/Admin/Documents/Paper/MatingDesignVA-main')
 
 p_df <- readRDS(file = 'output/Appendix_A.RData')
 
@@ -58,17 +58,41 @@ Simulation scheme
 ## Fig. 2
 
 ```{r}
-tmp <- summary_df %>% 
+cross_df <- tibble(P_num = c(2, 4, 8, 16)) %>% 
+  mutate(P = factor(P_num, levels = c(2, 4, 8, 16),
+                    labels = paste0('P=', c(2, 4, 8, 16))),
+         DC = P_num/2,
+         FC = (P_num/2)**2,
+         HC = (P_num * (P_num - 1)) / 2) %>% 
+  pivot_longer(DC:HC, names_to = 'MD',
+               values_to = 'crosses') %>% 
+  mutate(MD = factor(MD,
+                     levels = c('DC', 'FC', 'HC'))) %>% 
+  filter(!(MD %in% c('DC', 'HC') & P == 'P=2'))
+
+
+gtable_filter_remove <- function (x, name, trim = TRUE){
+    matches <- !(x$layout$name %in% name)
+    x$layout <- x$layout[matches, , drop = FALSE]
+    x$grobs <- x$grobs[matches]
+    if (trim) 
+        x <- gtable_trim(x)
+    x
+}
+
+elite <- summary_df %>% 
   filter(N == 'N=1000',
          G == 'G1_DH',
          P %in% paste0('P=', c(2, 4, 8, 16)),
          parameter == 'E_Vg',
          L == 'L=1000',
-         MD == 'HC') %>% 
-  ggplot(aes(x=P, y = Mean, fill = ancestral))+
-  geom_col(position = 'dodge')+
-  facet_grid(~ancestral, scales = 'free_y', switch = 'x')+
-  scale_fill_manual(values = cbPalette)+
+         ancestral == 'Elite',
+         !(MD %in% c('DC', 'HC') & P == 'P=2')) %>% 
+  ggplot(aes(x=MD, y = Mean))+
+  geom_col(position = 'dodge', fill = cbPalette[1])+
+  geom_text(y = 500, aes(label = crosses), data = cross_df, size = 2.5)+
+  scale_y_continuous(limits = c(0, 500))+
+  facet_grid(~P, switch = 'x', scales = 'free_x', space = 'free_x')+
   ylab(bquote('Estimated expectation for'~V[A]))+
   theme_light(base_size = 10)+
   theme(strip.text.y = element_text(angle = 0),
@@ -77,31 +101,49 @@ tmp <- summary_df %>%
         legend.position = 'none',
         axis.title.x = element_blank())
 
-tmp 
+plot_tab_elite <- ggplotGrob(elite)
 
-ggsave('figures/fig2.jpg', width = 7.5, height = 9,
+tmp <- plot_filtered <- gtable_filter_remove(plot_tab_elite, 
+                     "axis-b-1",
+                     trim=FALSE)
+
+elite <- ggpubr::as_ggplot(tmp)
+
+landrace <- summary_df %>% 
+  filter(N == 'N=1000',
+         G == 'G1_DH',
+         P %in% paste0('P=', c(2, 4, 8, 16)),
+         parameter == 'E_Vg',
+         L == 'L=1000',
+         ancestral == 'Landrace',
+         !(MD %in% c('DC', 'HC') & P == 'P=2')) %>% 
+  ggplot(aes(x=MD, y = Mean))+
+  geom_col(position = 'dodge', fill = cbPalette[2])+
+  geom_text(y = 500, aes(label = crosses), data = cross_df, size = 2.5)+
+  scale_y_continuous(limits = c(0, 500))+
+  facet_grid(~P, switch = 'x', scales = 'free_x', space = 'free_x')+
+  ylab(bquote('Estimated expectation for'~V[A]))+
+  theme_light(base_size = 10)+
+  theme(strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        legend.position = 'none',
+        axis.title.x = element_blank())
+
+plot_tab_landrace <- ggplotGrob(landrace)
+
+tmp <- plot_filtered <- gtable_filter_remove(plot_tab_landrace, 
+                     "axis-b-1",
+                     trim=FALSE)
+
+landrace <- ggpubr::as_ggplot(tmp)
+
+plot_grid(elite, landrace) 
+
+ggsave('figures/fig2.jpg', width = 15, height = 7.5,
        bg = 'white', units = 'cm')
 
-summary_df %>% 
-  filter(N == 'N=1000',
-         G == 'G1_DH',
-         P %in% paste0('P=', c(2,16)),
-         parameter == 'E_Vg',
-         L == 'L=1000',
-         MD == 'HC') %>% 
-  select(P, ancestral, Mean) %>% 
-  pivot_wider(values_from = Mean, names_from = P) %>% 
-  mutate(increase = `P=16`/`P=2` - 1)
 
-summary_df %>% 
-  filter(N == 'N=1000',
-         G == 'G1_DH',
-         parameter == 'E_Vg',
-         L == 'L=1000',
-         MD == 'HC') %>% 
-  select(P, ancestral, Mean) %>% 
-  pivot_wider(values_from = Mean, names_from = ancestral) %>% 
-  mutate(increase = Landrace/Elite - 1)
 ```
 
 ## Fig. 3
@@ -235,74 +277,16 @@ tmp
 
 ggsave('figures/fig3.jpg', width = 15, height = 7.5, bg = 'white', units = 'cm')
 
-
 summary_df %>%
   filter(G == 'G1_DH',
          N %in% c('N=1000'),
-         L == 'L=1000',
-         ancestral == 'Elite',
-         parameter %in% c('var_b')) %>% 
-  select(P, MD, Mean) %>% 
-  pivot_wider(names_from = MD, values_from = Mean) %>% 
-  mutate(tmp = HC/DC - 1)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         ancestral == 'Elite',
-         parameter %in% c('var_b')) %>% 
-  select(P, MD, Mean) %>% 
-  pivot_wider(names_from = P, values_from = Mean) %>% 
-  mutate(tmp = `P=16`/`P=4` - 1)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
+         P %in% paste0('P=', c(2, 4, 8, 16)),
          L == 'L=1000',
          ancestral == 'Elite',
          parameter %in% c('var_bw')) %>% 
   select(P, MD, Mean) %>% 
-  pivot_wider(names_from = P, values_from = Mean) %>% 
-  mutate(tmp = `P=16`/`P=2` - 1)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         ancestral == 'Elite',
-         parameter %in% c('var_bw')) %>% 
-  select(P, MD, Mean) %>% 
-  pivot_wider(names_from = MD, values_from = Mean) %>% 
-  mutate(tmp = HC/DC - 1)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         ancestral == 'Elite',
-         parameter %in% c('var_bw')) %>% 
-  select(P, MD, Mean) %>% 
-  pivot_wider(names_from = P, values_from = Mean) %>% 
-  mutate(tmp = `P=16`/`P=4` - 1)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         ancestral == 'Elite',
-         parameter %in% c('var_bb')) %>% 
-  select(P, MD, Mean) %>% 
-  pivot_wider(names_from = P, values_from = Mean) %>% 
-  mutate(tmp = `P=16`/`P=4` - 1)
-
-summary_df %>% 
-  filter(G == 'G1_DH',
-         parameter == 'var_b') %>% 
-  select(L:ancestral, Mean) %>% 
-  pivot_wider(names_from = P, values_from = Mean) %>% 
-  mutate(tmp = (`P=4` - `P=16`)/`P=4`) %$%
-  summary(tmp)
+  pivot_wider(values_from = Mean, names_from = MD) %>% 
+  write.csv2(file = 'var_bw_fig3.csv')
 
 ```
 
@@ -342,30 +326,7 @@ tmp
 
 ggsave('figures/fig4.jpg', width = 7.5, height = 7.5, bg = 'white', units = 'cm')
 
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=50', 'N=250', 'N=1000'),
-         P %in% paste0('P=', c(2)),
-         ancestral == 'Elite',
-         L == 'L=1000',
-         MD == 'FC',
-         parameter %in% c('var_b')) %>% 
-  select(N, Mean) %>% 
-  pivot_wider(names_from = N, values_from = Mean) %>% 
-  mutate(N50_2_N250 = `N=250`/`N=50` - 1,
-         N250_2_N1000 = `N=1000`/`N=250` - 1)
-  
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=50', 'N=250', 'N=1000'),
-         P %in% paste0('P=', c(2)),
-         ancestral == 'Elite',
-         L == 'L=1000',
-         MD == 'FC',
-         parameter %in% c('var_b', 'var_bb')) %>% 
-  select(N, Mean, parameter) %>% 
-  pivot_wider(names_from = parameter, values_from = 'Mean') %>% 
-  mutate(tmp = var_bb/var_b)
+
 ```
 
 ## Fig. 5
@@ -400,114 +361,7 @@ tmp
 
 ggsave('figures/fig5.jpg', width = 15, height = 20, bg = 'white', units = 'cm')
 
-summary_df %>% 
-    filter(N %in% c('N=50'),
-         ancestral == 'Elite',
-         MD == 'FC',
-         L == 'L=1000',
-         parameter %in% c('var_bb')) %>% 
-   select(P, G, Mean) %>% 
-   pivot_wider(names_from = G, values_from = Mean) %>% 
-   mutate(tmp = G4_DH/G1_DH)
-   
-summary_df %>% 
-    filter(parameter %in% c('var_bw'),
-           G %in% c('G1_DH', 'G2_DH')) %>%
-  select(L, P, N, MD, ancestral, G, Mean) %>% 
-  pivot_wider(names_from = G, values_from = Mean) %>% 
-  mutate(tmp = G2_DH/G1_DH - 1) %$%
-  summary(tmp)
 
-# ancestral
-summary_df %>% 
-    filter(parameter %in% c('var_bw'),
-           G %in% c('G1_DH', 'G2_DH')) %>%
-  select(L, P, N, MD, ancestral, G, Mean) %>% 
-  pivot_wider(names_from = G, values_from = Mean) %>% 
-  mutate(tmp = G2_DH/G1_DH - 1) %>% 
-  select(L:ancestral, tmp) %>% 
-  pivot_wider(names_from = ancestral, values_from = tmp) %>% 
-  mutate(tmp = abs(Elite - Landrace)) %$%
-  summary(tmp)
-
-# MD
-summary_df %>% 
-    filter(parameter %in% c('var_bw'),
-           G %in% c('G1_DH', 'G2_DH')) %>%
-  select(L, P, N, MD, ancestral, G, Mean) %>% 
-  pivot_wider(names_from = G, values_from = Mean) %>% 
-  mutate(tmp = G2_DH/G1_DH - 1) %>% 
-  select(L:ancestral, tmp) %>% 
-  group_by(L, P, N, ancestral) %>% 
-  summarize(tmp = max(tmp) - min(tmp)) %>% 
-  ungroup() %$%
-  summary(tmp)
-
-summary_df %>% 
-    filter(parameter == 'var_b') %>% 
-  select(L:G, Mean) %>% 
-  pivot_wider(names_from = G, values_from = Mean) %>% 
-  mutate(first = G1_DH - G2_DH,
-         second = G2_DH - G3_DH,
-         third = G3_DH - G4_DH,
-         tmp = first > second & first > third) %$%
-  table(tmp)
-
-summary_df %>% 
-    filter(parameter == 'var_bw') %>% 
-  select(L:G, Mean) %>% 
-  pivot_wider(names_from = G, values_from = Mean) %>% 
-  mutate(first = (G1_DH - G2_DH)/G1_DH,
-         second = (G2_DH - G3_DH)/G2_DH,
-         third = (G3_DH - G4_DH)/G3_DH) %>% 
-  select(L:ancestral, first:third) %>% 
-  pivot_longer(first:third) %$%
-  summary(value)
-
-summary_df %>% 
-    filter(parameter == 'var_bw') %>% 
-  select(L:G, Mean) %>% 
-  pivot_wider(names_from = G, values_from = Mean) %>% 
-  mutate(first = (G1_DH - G2_DH)/G1_DH) %$%
-  summary(first)
-
-summary_df %>% 
-    filter(parameter == 'var_bw') %>% 
-  select(L:G, Mean) %>% 
-  pivot_wider(names_from = G, values_from = Mean) %>% 
-  mutate(first = (G1_DH - G2_DH)/G1_DH) %>% 
-  filter(first == min(first) | first == max(first))
-
-summary_df %>% 
-    filter(parameter == 'var_bw') %>% 
-  select(L:G, Mean) %>% 
-  pivot_wider(names_from = G, values_from = Mean) %>% 
-  mutate(first = (G1_DH - G2_DH)/G1_DH) %>% 
-  ggplot(aes(G1_DH, first, colour = P, shape = N))+
-  geom_point()+
-  scale_shape_manual(values = 0:2)
-
-summary_df %>% 
-    filter(parameter == 'var_bw') %>% 
-  select(L:G, Mean) %>% 
-  pivot_wider(names_from = G, values_from = Mean) %>% 
-  mutate(first = (G1_DH - G2_DH)/G1_DH) %>% 
-  filter(P == 'P=2') %$%
-  summary(first)
-
-summary_df %>%
-  filter(parameter == 'var_bb',
-         G == 'G4_DH') %>% 
-  ggplot(aes(x = L, y = Mean, colour = P))+
-  geom_point()+
-  facet_grid(~N)
-
-summary_df %>%
-  filter(parameter == 'var_bb',
-         G == 'G4_DH',
-         N == 'N=50') %>% 
-  select(L:ancestral, Mean) %>% 
-  pivot_wider(names_from = L, values_from = Mean)
 ```
 
 
@@ -564,7 +418,6 @@ Trait distribution
 
 ```{r}
 summary_distribution <- simulation_df %>%
-#  filter(sel_frac == 1) %>% 
   mutate(Cw = Vg + Cw,
          Cb = Vg + Cb) %>% 
   select(P, `V[A]` = VA, `V[g]` = Vg,
@@ -604,7 +457,6 @@ summary_distribution <- expectation_df %>%
 
 
 tmp <- simulation_df %>%
-#  filter(sel_frac == 1) %>% 
   mutate(Cw = Vg + Cw,
          Cb = Vg + Cb) %>% 
   select(P, `V[A]` = VA, `V[g]` = Vg,
@@ -621,12 +473,12 @@ tmp <- simulation_df %>%
   geom_label(data = summary_distribution,
              aes(label = paste0('mean = ', mean, ' (', Exp.mean, ')',
                                 '\nvariance = ', var, ' (', Exp.var, ')',
-                                '\nexcess = ', excess, 
-                                '\nskewness = ', skewness)),
+                                '\nskewness = ', skewness,
+                                '\nkurtosis = ', excess 
+                                )),
              x = 900, y = 1800, size = 3)+
     facet_grid(parameter~P, labeller = 'label_parsed') +
   xlab('Realized values')+
-  #scale_y_continuous(limits = c(0, 1600))+
   theme_light(base_size = 10)+
   theme(legend.position = 'none',
         strip.text.y = element_text(angle = 0),
@@ -637,13 +489,96 @@ tmp
 
 ggsave('figures/figS1.jpg', width = 15, height = 15, bg = 'white', units = 'cm')
 
-simulation_df %>%
-  group_by(P) %>% 
-  summarize(cor = cor(Vg, Cw*Cb))
+```
+
+## S2
+
+```{r}
+summary_distribution <- simulation_df %>%
+  select(P, C, `C[w]` = Cw, `C[b]` = Cb,
+         b, `b[w]` = bw, `b[b]` = bb) %>% 
+  pivot_longer(-P, names_to = 'parameter') %>% 
+  group_by(P, parameter) %>% 
+    summarize(mean = round(mean(value), 2),
+            var = round(var(value), 2),
+            excess = round(kurtosis(value) - 3, 2),
+            skewness = round(skewness(value), 2),
+            prct_neg = round((sum(value < 0)/n()) * 100, 2)) %>% 
+  ungroup() %>% 
+  mutate(parameter = factor(parameter, 
+                            levels = c('C', 'C[w]', 'C[b]',
+                                       'b', 'b[w]', 'b[b]')),
+         P = recode_factor(P, 
+                           'P=2' = "'P'=='2'",
+                           'P=4' = "'P'=='4'"))
+
+
+A <- simulation_df %>%
+  select(P, C, `C[w]` = Cw, `C[b]` = Cb,
+         b, `b[w]` = bw, `b[b]` = bb) %>% 
+  pivot_longer(-P, names_to = 'parameter') %>% 
+  mutate(parameter = factor(parameter, 
+                            levels = c('C', 'C[w]', 'C[b]',
+                                       'b', 'b[w]', 'b[b]')),
+         P = recode_factor(P, 
+                           'P=2' = "'P'=='2'",
+                           'P=4' = "'P'=='4'")) %>%
+  filter(parameter %in% c('C', 'C[w]', 'C[b]')) %>% 
+  ggplot(aes(x = value))+
+  geom_histogram(bins = 100)+
+  geom_label(data = filter(summary_distribution, parameter %in% c('C', 'C[w]', 'C[b]')),
+             aes(label = paste0('mean = ', mean, 
+                                '\nvariance = ', var, 
+                                '\nskewness = ', skewness,
+                                '\nkurtosis = ', excess,
+                                '\nsign(-) = ', prct_neg, '%'
+                                )),
+             x = 600, y = 3000, size = 3)+
+    facet_grid(parameter~P, labeller = 'label_parsed') +
+  xlab('Realized values')+
+  theme_light(base_size = 10)+
+  theme(legend.position = 'none',
+        strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank(),
+        axis.ticks.x = element_blank())
+
+B <- simulation_df %>%
+  select(P, C, `C[w]` = Cw, `C[b]` = Cb,
+         b, `b[w]` = bw, `b[b]` = bb) %>% 
+  pivot_longer(-P, names_to = 'parameter') %>% 
+  mutate(parameter = factor(parameter, 
+                            levels = c('C', 'C[w]', 'C[b]',
+                                       'b', 'b[w]', 'b[b]')),
+         P = recode_factor(P, 
+                           'P=2' = "'P'=='2'",
+                           'P=4' = "'P'=='4'")) %>%
+  filter(parameter %in% c('b', 'b[w]', 'b[b]')) %>% 
+  ggplot(aes(x = value))+
+  geom_histogram(bins = 100)+
+  geom_label(data = filter(summary_distribution, parameter %in% c('b', 'b[w]', 'b[b]')),
+             aes(label = paste0('mean = ', mean, 
+                                '\nvariance = ', var, 
+                                '\nskewness = ', skewness,
+                                '\nkurtosis = ', excess,
+                                '\nsign(-) = ', prct_neg, '%'
+                                )),
+             x = 2.5, y = 2500, size = 3)+
+    facet_grid(parameter~P, labeller = 'label_parsed') +
+  xlab('Realized values')+
+  theme_light(base_size = 10)+
+  theme(legend.position = 'none',
+        strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank(),
+        axis.ticks.x = element_blank())
+
+plot_grid(A, B, labels = c('A', 'B'), ncol = 1)
+
+ggsave('figures/figS2.jpg', width = 15, height = 20, bg = 'white', units = 'cm')
 ```
 
 
-## S2
+
+## S3
 
 Histograms of MAF
 
@@ -674,11 +609,11 @@ tmp <- tibble(Landrace = colMeans(LR),
 
 tmp
 
-ggsave('figures/figS2.jpg', width = 7.5, height = 7.5, bg = 'white', units = 'cm')
+ggsave('figures/figS3.jpg', width = 7.5, height = 7.5, bg = 'white', units = 'cm')
 ```
 
 
-## S3
+## S4
 
 ```{r}
 gtable_filter_remove <- function (x, name, trim = TRUE){
@@ -811,72 +746,12 @@ tmp <- plot_grid(plot_grid(A, B,
 
 tmp 
 
-ggsave('figures/figS3.jpg', width = 15, height = 7.5, bg = 'white', units = 'cm')
+ggsave('figures/figS4.jpg', width = 15, height = 7.5, bg = 'white', units = 'cm')
 
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         parameter %in% c('var_VA', 'var_C')) %>% 
-  select(P, ancestral, MD, parameter, Mean) %>% 
-  pivot_wider(names_from = parameter, values_from = Mean) %>% 
-  mutate(tmp = var_C/var_VA) %$%
-  summary(tmp)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         parameter %in% c('var_C')) %>% 
-  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
-  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
-  mutate(tmp = Landrace/Elite - 1) %$%
-  summary(tmp)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         parameter %in% c('var_b')) %>% 
-  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
-  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
-  mutate(tmp = Landrace/Elite - 1) %$%
-  summary(tmp)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         parameter %in% c('var_bw')) %>% 
-  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
-  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
-  mutate(tmp = Landrace/Elite - 1) %$%
-  summary(tmp)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         P != 'P=2',
-         parameter %in% c('var_bb')) %>% 
-  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
-  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
-  mutate(tmp = Landrace/Elite - 1) %$%
-  summary(tmp)
-
-summary_df %>%
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         L == 'L=1000',
-         P == 'P=2',
-         parameter %in% c('var_bb')) %>% 
-  select(N, L, P, ancestral, MD, parameter, Mean) %>% 
-  pivot_wider(names_from = ancestral, values_from = Mean) %>% 
-  mutate(tmp = Landrace/Elite - 1) 
 
 ```
 
-## S4
+## S5
 
 Differences between number of QTL
 
@@ -954,60 +829,11 @@ plot_grid(B, A, ncol = 2,
           rel_widths = c(1, 3),
           axis = 'b')
 
-ggsave('figures/figS4.jpg', width = 15, height = 12, bg = 'white', units = 'cm')
+ggsave('figures/figS5.jpg', width = 15, height = 12, bg = 'white', units = 'cm')
 
-summary_df %>% 
-  filter(G == 'G1_DH',
-         N %in% c('N=1000'),
-         ancestral == 'Elite',
-         parameter %in% c('var_b'),
-         MD == 'FC') %>% 
-  select(P, L, Mean) %>% 
-  pivot_wider(names_from = L, values_from = Mean) %>% 
-  mutate(L50_2_L250 = `L=250`/`L=50` - 1,
-         L250_2_L1000 = `L=1000`/`L=250` - 1)
-
-  
-summary_df %>% 
-  filter(parameter %in% c('var_b', 'var_bb')) %>% 
-  select(ancestral, MD, P, N, L, G, parameter, Mean) %>% 
-  pivot_wider(names_from = parameter, values_from = Mean) %>% 
-  mutate(tmp = var_bb/var_b) %>% 
-  select(ancestraL=G, tmp) %>% 
-  pivot_wider(names_from = L, values_from = tmp) %>% 
-  ggpairs(columns = 6:8)
-
-summary_df %>% 
-  filter(parameter %in% c('var_b', 'var_bb')) %>% 
-  select(ancestral, MD, P, N, L, G, parameter, Mean) %>% 
-  pivot_wider(names_from = parameter, values_from = Mean) %>% 
-  mutate(tmp = var_bb/var_b) %>% 
-  select(ancestraL=G, tmp) %>% 
-  pivot_wider(names_from = L, values_from = tmp) %>% 
-  mutate(tmp = `L=50` - `L=1000`) %$%
-  summary(tmp)
-
-summary_df %>% 
-  filter(parameter == 'var_b',
-         G == 'G1_DH',
-         P != 'P=2') %>% 
-  select(L:G, Mean) %>% 
-  pivot_wider(names_from = L, values_from = Mean) %>% 
-  mutate(L1000_250 = (`L=1000` - `L=250`)/`L=1000`,
-         L250_50 = (`L=250` - `L=50`)/`L=250`) %$%
-  summary(L1000_250)
-
-summary_df %>% 
-  filter(parameter == 'var_b',
-         G == 'G1_DH') %>% 
-  select(L:G, Mean) %>% 
-  pivot_wider(names_from = L, values_from = Mean) %>% 
-  mutate(L1000_250 = (`L=1000` - `L=250`)/`L=1000`,
-         L250_50 = (`L=250` - `L=50`)/`L=250`) %>% 
-  arrange(desc(L250_50))
 ```
 
-## S5
+## S6
 
 non-linear regression
 
@@ -1089,10 +915,10 @@ tmp <- reg_plot %>%
 
 tmp
 
-ggsave('figures/figS5.jpg', width = 15, height = 12, bg = 'white', units = 'cm')
+ggsave('figures/figS6.jpg', width = 15, height = 12, bg = 'white', units = 'cm')
 ```
 
-## S6
+## S7
 
 ```{r}
 A <- p_df %>% 
@@ -1138,12 +964,19 @@ B
 
 plot_grid(A, B, ncol = 2, labels = c('A', 'B'))
 
-ggsave('figures/figS6.jpg', width = 15, height = 7.5, bg = 'white',
+ggsave('figures/figS7.jpg', width = 15, height = 7.5, bg = 'white',
        units = 'cm')
 
 ```
 
-## S7
+## S8
+
+```{r}
+
+```
+
+
+## S9
 
 Histogram of the D values in the ancestral populations
 
@@ -1167,7 +1000,7 @@ D_ancestral %>%
         panel.grid = element_blank())+
   xlab(bquote(d[ij]))
 
-  ggsave('figures/figS7.jpg', width = 15, height = 15, bg = 'white',
+  ggsave('figures/figS9.jpg', width = 15, height = 15, bg = 'white',
        units = 'cm')
 ```
 

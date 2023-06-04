@@ -13,7 +13,7 @@ library(future.apply)
 setwd('~/LD/Paper')
 
 ## How many cores should be used?
-plan(multicore, workers = 80)
+plan(multicore, workers = 1)
 
 ## Read in the data
 main_sim_result <-  data.table::fread('output/main_sim_result.csv') %>%  
