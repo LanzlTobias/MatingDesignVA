@@ -79,4 +79,28 @@ p_df$y <- -choose(l, 2):choose(l, 2)
 
 saveRDS(p_df, file = 'output/Appendix_A.RData')
 
+suppressPackageStartupMessages(library(future))
+suppressPackageStartupMessages(library(future.apply))
+
+plan(multicore, workers = 10)
+
+
+negative_probability_function <- function(l, p) {
+  k_vec <- 0:l
+  y_vec <- -choose(l, 2):(-1)
+  
+  P_Y_y <- vapply(y_vec, function(y) {
+    K_y <- y == 2 * k_vec ** 2 - 2 * l * k_vec + 0.5 * l * (l - 1)
+    sum(K_y * choose(l, k_vec) * p ** k_vec * (1 - p) ** (l - k_vec))
+  }, FUN.VALUE = numeric(1))
+  return(sum(P_Y_y))
+}
+
+l <- c(seq(100, 2500, 100), 5000)
+neg_prob <- future_vapply(l, negative_probability_function, p = 0.5, FUN.VALUE = numeric(1))
+
+result <- cbind(l, neg_prob)
+
+saveRDS(result, "Appendix_A_negative_prob.RData")
+
 
