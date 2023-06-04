@@ -4,11 +4,11 @@ To run the main simulation described in the paper, run the script main_simulatio
 
 To calculate means and standard errors of all parameters over all combinations of replication and set run the scripts "ANOVA_Mean.R". This script can (and should) be parallelized in the same way as the previous script. The output will be saved as "summary_df.RData" in /output. Additionally the results of all variance components will be saved in /output as "ANOVA_df.RData".
 
-To see the verification of the formulas in Appendix A and generate the data for "PLOT", run the script "Appendix_A.R". The output will be saved in /output as "Appendix_A.RData".
+To see the verification of the formulas in Appendix A and generate the data for figures S7 and S8, run the script "Appendix_A.R". The output will be saved in /output as "Appendix_A.RData" and "Appendix_A_negative_prob.RData".
 
-To generate the data for "FIG. S?", run the script "figure_S?.R". The output will be saved as "figS2_expectation.RData" and "figS2_simulation.RData" in /output.
+To generate the data for figure S1, run the script "figure_S1.R". The output will be saved as "figS1_expectation.RData" and "figS1_simulation.RData" in /output.
 
-To calculate the input for FIG.S?, run "D_distributions.R". The output will be saved in /output as "D_ancestral.RData".
+To calculate the input for figure S9, run "D_distributions.R". The output will be saved in /output as "D_ancestral.RData".
 
 The code for generating all figures and supplements can be found in "figures.Rmd". Create an empty directory called "figures" and run the script to generate all figures as seen in the paper. Needs all output files generated from the other scripts.
 
