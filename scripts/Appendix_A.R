@@ -91,12 +91,12 @@ negative_probability_function <- function(l, p) {
   
   P_Y_y <- vapply(y_vec, function(y) {
     K_y <- y == 2 * k_vec ** 2 - 2 * l * k_vec + 0.5 * l * (l - 1)
-    sum(K_y * choose(l, k_vec) * p ** k_vec * (1 - p) ** (l - k_vec))
+    sum(K_y * choose(l, k_vec) * p ** k_vec * (1 - p) ** (l - k_vec), na.rm = TRUE)
   }, FUN.VALUE = numeric(1))
-  return(sum(P_Y_y))
+  return(sum(P_Y_y, na.rm = TRUE))
 }
 
-l <- c(seq(100, 2500, 100), 5000)
+l <- rev(seq(200, 5000, 200))
 neg_prob <- future_vapply(l, negative_probability_function, p = 0.5, FUN.VALUE = numeric(1))
 
 result <- cbind(l, neg_prob)
