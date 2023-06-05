@@ -35,6 +35,9 @@ setwd('C:/Users/Admin/Documents/Paper/MatingDesignVA-main')
 
 p_df <- readRDS(file = 'output/Appendix_A.RData')
 
+p_neg_df <- tibble(data.frame(readRDS(file = 'output/Appendix_A_negative_prob.RData')))
+
+
 summary_df <- readRDS('output/summary_df.RData') 
 
 ANOVA_df <- readRDS('output/ANOVA_df.RData')
@@ -950,7 +953,7 @@ B <- p_df %>%
          name == 'p=0.5') %>% 
   mutate(cumulative = cumsum(value)) %>% 
   ggplot(aes(x = y, y = cumulative, colour = y < 0))+
-  ylab(bquote("P[Y" <= "y|L = 1000," ~ beta ~ "= 0.5]"))+
+  ylab(bquote("P[Y<=y|L = 1000," ~ beta ~ "= 0.5]"))+
   geom_segment(aes(xend = y), yend = 0)+
   scale_colour_manual(values = c('cornflowerblue', 'orange'))+
   geom_hline(yintercept = 0)+
@@ -972,7 +975,18 @@ ggsave('figures/figS7.jpg', width = 15, height = 7.5, bg = 'white',
 ## S8
 
 ```{r}
+p_neg_df %>% 
+  ggplot(aes(l, neg_prob))+
+  geom_point(size = 0.25)+
+  geom_hline(yintercept = 1/2)+
+  scale_y_continuous(limits = c(0, 1))+
+  theme_light(base_size = 10)+
+  theme(panel.grid = element_blank())+
+  ylab(bquote("P[Y<=y|L," ~ beta ~ "= 0.5]"))+
+  xlab('L')
 
+ggsave('figures/figS7.jpg', width = 7.5, height = 7.5, bg = 'white',
+       units = 'cm')
 ```
 
 
