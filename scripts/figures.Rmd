@@ -31,12 +31,9 @@ library(scales)
 library(gtable)
 library(grid)
 
-setwd('C:/Users/Admin/Documents/Paper/MatingDesignVA-main')
+setwd('setwd('~/LD/Paper/')')
 
 p_df <- readRDS(file = 'output/Appendix_A.RData')
-
-p_neg_df <- tibble(data.frame(readRDS(file = 'output/Appendix_A_negative_prob.RData')))
-
 
 summary_df <- readRDS('output/summary_df.RData') 
 
@@ -96,7 +93,7 @@ elite <- summary_df %>%
   geom_text(y = 500, aes(label = crosses), data = cross_df, size = 2.5)+
   scale_y_continuous(limits = c(0, 500))+
   facet_grid(~P, switch = 'x', scales = 'free_x', space = 'free_x')+
-  ylab(bquote('Estimated expectation for'~V[A]))+
+  ylab(bquote('Estimated expectation of'~V[A]))+
   theme_light(base_size = 10)+
   theme(strip.text.y = element_text(angle = 0),
         panel.grid = element_blank(),
@@ -970,27 +967,17 @@ plot_grid(A, B, ncol = 2, labels = c('A', 'B'))
 ggsave('figures/figS7.jpg', width = 15, height = 7.5, bg = 'white',
        units = 'cm')
 
+
+p_df %>% 
+  pivot_longer(-y) %>% 
+  filter(value > 0,
+         name == 'p=0.5') %$%
+  skewness(value)
+
 ```
+
 
 ## S8
-
-```{r}
-p_neg_df %>% 
-  ggplot(aes(l, neg_prob))+
-  geom_point(size = 0.25)+
-  geom_hline(yintercept = 1/2)+
-  scale_y_continuous(limits = c(0, 1))+
-  theme_light(base_size = 10)+
-  theme(panel.grid = element_blank())+
-  ylab(bquote("P[Y<=y|L," ~ beta ~ "= 0.5]"))+
-  xlab('L')
-
-ggsave('figures/figS7.jpg', width = 7.5, height = 7.5, bg = 'white',
-       units = 'cm')
-```
-
-
-## S9
 
 Histogram of the D values in the ancestral populations
 
@@ -1014,7 +1001,7 @@ D_ancestral %>%
         panel.grid = element_blank())+
   xlab(bquote(d[ij]))
 
-  ggsave('figures/figS9.jpg', width = 15, height = 15, bg = 'white',
+  ggsave('figures/figS8.jpg', width = 15, height = 15, bg = 'white',
        units = 'cm')
 ```
 
