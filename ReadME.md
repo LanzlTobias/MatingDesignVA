@@ -14,11 +14,11 @@ To run the main simulation described in the paper, execute the **main_simulation
 To calculate the means and standard errors of all parameters over all combinations of replication and set, run the **ANOVA_Mean.R** script. Similar to the main simulation script, this script can be parallelized. Adjust the **"workers"** argument in the function **plan(multicore, workers = 1)** to set the desired number of threads. The output will be saved as **summary_df.RData** in the **/output** directory. Additionally, the results of all variance components will be saved in **/output** as **ANOVA_df.RData**.
 
 ## Appendix and Figures
-To verify the formulas in Appendix A and generate the data for figures S7 and S8, execute the **Appendix_A.R** script. The output will be saved as **Appendix_A.RData** and **Appendix_A_negative_prob.RData** in the **/output** directory.
+To verify the formulas in Appendix A and generate the data for figure S7, execute the **Appendix_A.R** script. The output will be saved as **Appendix_A.RData** in the **/output** directory.
 
-To generate the data for figure S1, run the **figure_S1.R** script. The output will be saved as **figS1_expectation.RData** and **figS1_simulation.RData** in the **/output** directory.
+To generate the data for figures S1 and S2, run the **figure_S1_S2.R** script. The output will be saved as **figS1_S2_expectation.RData** and **figS1_S2_simulation.RData** in the **/output** directory.
 
-To calculate the input for figure S9, run the **D_distributions.R** script. The output will be saved in **/output** as **D_ancestral.RData**.
+To calculate the input for figure S8, run the **D_distributions.R** script. The output will be saved in **/output** as **D_ancestral.RData**.
 
 ## Generating Figures
 The code for generating all figures and supplements can be found in **figures.Rmd**. Create an empty directory called **figures** and run the script to generate all figures as seen in the paper. Ensure that all output files generated from the previous scripts are available.
@@ -32,7 +32,7 @@ The code for generating all figures and supplements can be found in **figures.Rm
 - **preparatory_sim.R**: Essentially, **main_simulation.R** for 100 replications and 100 sets of QTL positions. Used to estimate the variance components of the number of sets and the number of replications.
 - **preparatory_sim_analysis.R**: Essentially, **ANOVA_Mean.R** for the output of **preparatory_sim.R**.
 - **Appendix_A.R**: Tests the formulas in Appendix A.
-- **figure_S2.R**: Simulation for the data used in figure S2.
+- **figure_S1_S2.R**: Simulation for the data used in figures S1 & S2.
 - **D_distributions.R**: Calculates the off-diagonal values of the matrix D in the ancestral populations.
 - **figures.Rmd**: R Notebook containing the code for generating the figures in the paper.
 - **founding_pop.RData**: Input file for the main simulation. Contains masked information for the coding of the genotypes.
