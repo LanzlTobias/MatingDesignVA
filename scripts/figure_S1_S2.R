@@ -1,4 +1,4 @@
-## Simulation for the data used in figure S2
+## Simulation for the data used in figures S1 & S2
 
 setwd('~/LD/Paper')
 
@@ -173,7 +173,7 @@ simulation_df <- bind_rows(map(result, 'simulation'), .id = 'P') %>%
                     labels = paste0('P=', P_vector)))
 
 ## Save the results
-saveRDS(expectation_df, file = 'output/figS1_expectation.RData')
-saveRDS(simulation_df, file = 'output/figS1_simulation.RData')
+saveRDS(expectation_df, file = 'output/figS1_S2_expectation.RData')
+saveRDS(simulation_df, file = 'output/figS1_S2_simulation.RData')
 
 
