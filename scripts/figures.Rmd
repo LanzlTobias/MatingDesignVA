@@ -31,7 +31,7 @@ library(scales)
 library(gtable)
 library(grid)
 
-setwd('setwd('~/LD/Paper/')')
+setwd('C:/Users/Admin/Documents/Paper/MatingDesignVA-main')
 
 p_df <- readRDS(file = 'output/Appendix_A.RData')
 
@@ -450,10 +450,14 @@ summary_distribution <- expectation_df %>%
   left_join(summary_distribution) %>% 
   mutate(parameter = factor(parameter, 
                             levels = c('V[g]', 'V[g]+C[w]',
-                                       'V[g]+C[b]', 'V[A]')),
+                                       'V[g]+C[b]', 'V[A]'),
+                            labels = c('V[g]~"|"~X', 'V[g]~"|"~X+C[w]~"|"~X',
+                                       'V[g]~"|"~X+C[b]~"|"~X', 'V[A]~"|"~X')),
          P = recode_factor(P, 
                            'P=2' = "'P'=='2'",
                            'P=4' = "'P'=='4'"))
+
+
 
 
 tmp <- simulation_df %>%
@@ -464,7 +468,9 @@ tmp <- simulation_df %>%
   pivot_longer(-P, names_to = 'parameter') %>% 
   mutate(parameter = factor(parameter, 
                             levels = c('V[g]', 'V[g]+C[w]',
-                                       'V[g]+C[b]', 'V[A]')),
+                                       'V[g]+C[b]', 'V[A]'),
+                            labels = c('V[g]~"|"~X', 'V[g]~"|"~X+C[w]~"|"~X',
+                                       'V[g]~"|"~X+C[b]~"|"~X', 'V[A]~"|"~X')),
          P = recode_factor(P, 
                            'P=2' = "'P'=='2'",
                            'P=4' = "'P'=='4'")) %>%
@@ -503,11 +509,13 @@ summary_distribution <- simulation_df %>%
             var = round(var(value), 2),
             excess = round(kurtosis(value) - 3, 2),
             skewness = round(skewness(value), 2),
-            prct_neg = round((sum(value < 0)/n()) * 100, 2)) %>% 
+            prct_neg = round((sum(value < 0)/n()) * 100)) %>% 
   ungroup() %>% 
   mutate(parameter = factor(parameter, 
                             levels = c('C', 'C[w]', 'C[b]',
-                                       'b', 'b[w]', 'b[b]')),
+                                       'b', 'b[w]', 'b[b]'),
+                            labels = c('C~"|"~X', 'C[w]~"|"~X', 'C[b]~"|"~X',
+                                       'b~"|"~X', 'b[w]~"|"~X', 'b[b]~"|"~X')),
          P = recode_factor(P, 
                            'P=2' = "'P'=='2'",
                            'P=4' = "'P'=='4'"))
@@ -519,18 +527,19 @@ A <- simulation_df %>%
   pivot_longer(-P, names_to = 'parameter') %>% 
   mutate(parameter = factor(parameter, 
                             levels = c('C', 'C[w]', 'C[b]',
-                                       'b', 'b[w]', 'b[b]')),
+                                       'b', 'b[w]', 'b[b]'),
+                            labels = c('C~"|"~X', 'C[w]~"|"~X', 'C[b]~"|"~X',
+                                       'b~"|"~X', 'b[w]~"|"~X', 'b[b]~"|"~X')),
          P = recode_factor(P, 
                            'P=2' = "'P'=='2'",
                            'P=4' = "'P'=='4'")) %>%
-  filter(parameter %in% c('C', 'C[w]', 'C[b]')) %>% 
+  filter(parameter %in% c('C~"|"~X', 'C[w]~"|"~X', 'C[b]~"|"~X')) %>% 
   ggplot(aes(x = value))+
   geom_histogram(bins = 100)+
-  geom_label(data = filter(summary_distribution, parameter %in% c('C', 'C[w]', 'C[b]')),
+  geom_label(data = filter(summary_distribution, parameter %in% c('C~"|"~X', 'C[w]~"|"~X', 'C[b]~"|"~X')),
              aes(label = paste0('mean = ', mean, 
                                 '\nvariance = ', var, 
                                 '\nskewness = ', skewness,
-                                '\nkurtosis = ', excess,
                                 '\nsign(-) = ', prct_neg, '%'
                                 )),
              x = 600, y = 3000, size = 3)+
@@ -548,18 +557,19 @@ B <- simulation_df %>%
   pivot_longer(-P, names_to = 'parameter') %>% 
   mutate(parameter = factor(parameter, 
                             levels = c('C', 'C[w]', 'C[b]',
-                                       'b', 'b[w]', 'b[b]')),
+                                       'b', 'b[w]', 'b[b]'),
+                            labels = c('C~"|"~X', 'C[w]~"|"~X', 'C[b]~"|"~X',
+                                       'b~"|"~X', 'b[w]~"|"~X', 'b[b]~"|"~X')),
          P = recode_factor(P, 
                            'P=2' = "'P'=='2'",
                            'P=4' = "'P'=='4'")) %>%
-  filter(parameter %in% c('b', 'b[w]', 'b[b]')) %>% 
+  filter(parameter %in% c('b~"|"~X', 'b[w]~"|"~X', 'b[b]~"|"~X')) %>% 
   ggplot(aes(x = value))+
   geom_histogram(bins = 100)+
-  geom_label(data = filter(summary_distribution, parameter %in% c('b', 'b[w]', 'b[b]')),
+  geom_label(data = filter(summary_distribution, parameter %in% c('b~"|"~X', 'b[w]~"|"~X', 'b[b]~"|"~X')),
              aes(label = paste0('mean = ', mean, 
                                 '\nvariance = ', var, 
                                 '\nskewness = ', skewness,
-                                '\nkurtosis = ', excess,
                                 '\nsign(-) = ', prct_neg, '%'
                                 )),
              x = 2.5, y = 2500, size = 3)+
@@ -935,6 +945,12 @@ A <- p_df %>%
         strip.text.y = element_text(angle = 0),
         panel.grid = element_blank())+
   coord_cartesian(xlim = c(-600, 7500))
+
+p_df %>% 
+  pivot_longer(-y) %>% 
+  filter(value > 0,
+         name == 'p=0.5') %$%
+  summary(y)
 
 A 
 
