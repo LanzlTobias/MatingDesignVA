@@ -39,9 +39,9 @@ summary_df <- readRDS('output/summary_df.RData')
 
 ANOVA_df <- readRDS('output/ANOVA_df.RData')
 
-expectation_df <- readRDS(file = 'output/figS1_expectation.RData') 
+expectation_df <- readRDS(file = 'output/figS1_S2_expectation.RData') 
 
-simulation_df <- readRDS(file = 'output/figS1_simulation.RData')
+simulation_df <- readRDS(file = 'output/figS1_S2_simulation.RData')
 
 D_ancestral <- readRDS(file = 'output/D_ancestral.RData')
 
