@@ -39,9 +39,9 @@ summary_df <- readRDS('output/summary_df.RData')
 
 ANOVA_df <- readRDS('output/ANOVA_df.RData')
 
-expectation_df <- readRDS(file = 'output/figS1_S2_expectation.RData') 
+expectation_df <- readRDS(file = 'output/figS1_expectation.RData') 
 
-simulation_df <- readRDS(file = 'output/figS1_S2_simulation.RData')
+simulation_df <- readRDS(file = 'output/figS1_simulation.RData')
 
 D_ancestral <- readRDS(file = 'output/D_ancestral.RData')
 
@@ -512,10 +512,10 @@ summary_distribution <- simulation_df %>%
             prct_neg = round((sum(value < 0)/n()) * 100)) %>% 
   ungroup() %>% 
   mutate(parameter = factor(parameter, 
-                            levels = c('C', 'C[w]', 'C[b]',
-                                       'b', 'b[w]', 'b[b]'),
-                            labels = c('C~"|"~X', 'C[w]~"|"~X', 'C[b]~"|"~X',
-                                       'b~"|"~X', 'b[w]~"|"~X', 'b[b]~"|"~X')),
+                            levels = c('C[w]', 'C[b]', 'C', 
+                                       'b[w]', 'b[b]','b'),
+                            labels = c('C[w]~"|"~X', 'C[b]~"|"~X', 'C~"|"~X', 
+                                       'b[w]~"|"~X', 'b[b]~"|"~X', 'b~"|"~X')),
          P = recode_factor(P, 
                            'P=2' = "'P'=='2'",
                            'P=4' = "'P'=='4'"))
@@ -526,10 +526,10 @@ A <- simulation_df %>%
          b, `b[w]` = bw, `b[b]` = bb) %>% 
   pivot_longer(-P, names_to = 'parameter') %>% 
   mutate(parameter = factor(parameter, 
-                            levels = c('C', 'C[w]', 'C[b]',
-                                       'b', 'b[w]', 'b[b]'),
-                            labels = c('C~"|"~X', 'C[w]~"|"~X', 'C[b]~"|"~X',
-                                       'b~"|"~X', 'b[w]~"|"~X', 'b[b]~"|"~X')),
+                            levels = c('C[w]', 'C[b]', 'C', 
+                                       'b[w]', 'b[b]','b'),
+                            labels = c('C[w]~"|"~X', 'C[b]~"|"~X', 'C~"|"~X', 
+                                       'b[w]~"|"~X', 'b[b]~"|"~X', 'b~"|"~X')),
          P = recode_factor(P, 
                            'P=2' = "'P'=='2'",
                            'P=4' = "'P'=='4'")) %>%
@@ -556,10 +556,10 @@ B <- simulation_df %>%
          b, `b[w]` = bw, `b[b]` = bb) %>% 
   pivot_longer(-P, names_to = 'parameter') %>% 
   mutate(parameter = factor(parameter, 
-                            levels = c('C', 'C[w]', 'C[b]',
-                                       'b', 'b[w]', 'b[b]'),
-                            labels = c('C~"|"~X', 'C[w]~"|"~X', 'C[b]~"|"~X',
-                                       'b~"|"~X', 'b[w]~"|"~X', 'b[b]~"|"~X')),
+                            levels = c('C[w]', 'C[b]', 'C', 
+                                       'b[w]', 'b[b]','b'),
+                            labels = c('C[w]~"|"~X', 'C[b]~"|"~X', 'C~"|"~X', 
+                                       'b[w]~"|"~X', 'b[b]~"|"~X', 'b~"|"~X')),
          P = recode_factor(P, 
                            'P=2' = "'P'=='2'",
                            'P=4' = "'P'=='4'")) %>%
@@ -1017,8 +1017,9 @@ D_ancestral %>%
         panel.grid = element_blank())+
   xlab(bquote(d[ij]))
 
-  ggsave('figures/figS8.jpg', width = 15, height = 15, bg = 'white',
+ggsave('figures/figS8.jpg', width = 15, height = 15, bg = 'white',
        units = 'cm')
+
 ```
 
 
