@@ -1,5 +1,3 @@
-## Calculates the off-diagonal values of the matrix D in the ancestral populations.
-
 setwd('~/LD/Paper')
 suppressPackageStartupMessages(library(AlphaSimR))
 suppressPackageStartupMessages(library(dplyr))
@@ -21,12 +19,9 @@ pop_foundation <- readRDS('input/founding_pop.RData')
 
 qtl_per_chr <- sapply(pop_foundation$genMap, length)
 # 
-# ## Sample the QTL positions for each trait out out the pool of 2500 possibilities
-# n_qtl = 1000
-# set.seed(1)
-# selected_qtl <- sort(sample(1:2500, n_qtl))
-# 
-## Calculate how many of the selected QTL positions are on each chromosome
+
+
+## Calculate how many of the QTL positions are on each chromosome
 chr_qtl_map <-
   split(1:2500, do.call(c, sapply(1:10, function(chr) {
     rep(chr, qtl_per_chr[chr])
@@ -73,37 +68,31 @@ X_LR <- pullSegSiteGeno(LR, simParam = SP)
 result <- lapply(list(X_EL, X_LR), function(X) {
   D <- D_calc(X)
   
-  D_poly <- D[diag(D) > 0,
-              diag(D) > 0]
+
+  diagonal <- diag(D)
   
-  diagonal <- diag(D_poly)
+  off_diag <- rep(D[upper.tri(D)], 2)
   
-  off_diag <- D_poly[upper.tri(D_poly)]
+
+  tmp_within_chr <- lapply(1:length(chr_qtl_map), function(chr){
+  D_chr <- D[chr_qtl_map[[chr]],
+    chr_qtl_map[[chr]]]
   
-  qtl_per_chr_poly <-  sapply(chr_qtl_map, function(chr) {
-    sum((1:ncol(D))[diag(D) > 0] %in% chr)
+  return(rep(D_chr[upper.tri(D_chr)], 2))
   })
   
-  which_chr <-
-    do.call(c, lapply(1:length(qtl_per_chr_poly), function(chr) {
-      return(rep(chr, qtl_per_chr_poly[chr]))
-    }))
+  within_chr <- do.call(c, tmp_within_chr)
   
-  within_chr <-
-    do.call(c, lapply(1:length(qtl_per_chr_poly), function(chr) {
-      D_tmp <- D_poly[which_chr == chr,
-                      which_chr == chr]
-      
-      return(D_tmp[upper.tri(D_tmp)])
-    }))
   
-  between_chr <-
-    do.call(c, lapply(1:length(qtl_per_chr_poly), function(chr) {
-      D_tmp <- D_poly[which_chr == chr,
-                      which_chr != chr]
-      
-      return(D_tmp[upper.tri(D_tmp)])
-    }))
+  chr <- 1
+  
+  tmp_between_chr <- lapply(1:length(chr_qtl_map), function(chr){
+    return(D[chr_qtl_map[[chr]], -chr_qtl_map[[chr]]])
+  })
+  
+  between_chr <- do.call(c, tmp_between_chr)
+  
+  
   
   result_poly <- list(
     diag = as_tibble(diagonal),
@@ -118,6 +107,5 @@ names(result) <- c('Elite', 'Landrace')
 result_df <- bind_rows(map(result, bind_rows, .id = 'elements'), .id = 'population')
 
 saveRDS(result_df, file = 'output/D_ancestral.RData')
-
 
 
